@@ -3,7 +3,7 @@ from aerospike_py.message import pack_message, unpack_message, AerospikeOuterHea
 
 
 def request_info_keys(conn: Connection, commands: list) -> (AerospikeOuterHeader, dict):
-    payload = pack_message('\n'.join(commands), 1)
+    payload = pack_message('\n'.join(commands).encode('UTF-8'), 1)
     conn.write(payload)
 
     header, payload = unpack_message(conn.read())
