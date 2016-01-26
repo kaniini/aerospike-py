@@ -6,7 +6,10 @@ def request_info_keys(conn: Connection, commands: list) -> (AerospikeOuterHeader
     payload = pack_message('\n'.join(commands).encode('UTF-8'), 1)
     conn.write(payload)
 
-    header, payload = unpack_message(conn.read())
+    hdr_payload = conn.read(8)
+    header, _ = unpack_message(hdr_payload)
+
+    header, payload = unpack_message(hdr_payload + conn.read(header.sz))
     lines = payload.decode('UTF-8')
 
     infokeys = {}
