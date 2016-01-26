@@ -15,6 +15,9 @@ def request_info_keys(conn: Connection, commands: list) -> (AerospikeOuterHeader
     infokeys = {}
     for line in lines.split('\n'):
         k, _, v = line.partition('\t')
-        infokeys[k] = v
+        if ';' in v:
+            infokeys[k] = v.split(';')
+        else:
+            infokeys[k] = v
 
     return header, infokeys
