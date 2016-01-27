@@ -6,6 +6,8 @@ class InvalidMessageException(Exception):
     pass
 
 
+# --- all messages ---
+
 AerospikeOuterHeader = namedtuple('AerospikeOuterHeader', ['version', 'msg_type', 'sz'])
 AerospikeOuterHeaderStruct = struct.Struct('>Q')
 
@@ -43,3 +45,42 @@ def unpack_message(envelope: bytes, whole_message: bool = False) -> (AerospikeOu
         raise InvalidMessageException('message payload is less than the specified length (%d < %d).' % (len(envelope[8:]), header.sz))
 
     return (header, envelope[8:])
+
+
+# --- AS_MSG (type 3) messages ---
+
+AS_INFO1_READ = (1 << 0)
+AS_INFO1_GET_ALL = (1 << 1)
+AS_INFO1_NOBINDATA = (1 << 5)
+AS_INFO1_CONSISTENCY_ALL = (1 << 6)
+
+AS_INFO2_WRITE = (1 << 0)
+AS_INFO2_DELETE = (1 << 1)
+AS_INFO2_GENERATION = (1 << 2)
+AS_INFO2_GENERATION_GT = (1 << 3)
+AS_INFO2_GENERATION_DUP = (1 << 4)
+AS_INFO2_CREATE_ONLY = (1 << 5)
+
+AS_INFO3_LAST = (1 << 0)
+AS_INFO3_COMMIT_MASTER = (1 << 1)
+AS_INFO3_UPDATE_ONLY = (1 << 3)
+AS_INFO3_CREATE_OR_REPLACE = (1 << 4)
+AS_INFO3_REPLACE_ONLY = (1 << 5)
+
+
+AerospikeASMSGHeader = namedtuple('AerospikeASMSGHeader', [
+    'header_sz', 'info1', 'info2', 'info3', 'result_code', 'generation', 'record_ttl', 'transaction_ttl', 'n_fields', 'n_ops'
+])
+AerospikeASMSGHeaderStruct = struct.Struct('>BBBxBIIIHH')
+
+
+def pack_asmsg_header(info1: int, info2: int, info3: int, generation: int, record_ttl: int, transaction_ttl: int, n_fields: int, n_ops: int) -> bytes:
+    header = AerospikeASMSGHeader(22, info1, info2, info3, 0, generation, record_ttl, transaction_ttl, n_fields, n_ops)
+    return AerospikeASMSGHeaderStruct.pack(*header)
+
+
+def unpack_asmsg_header(header: bytes) -> AerospikeASMSGHeader:
+    if len(header) < 22:
+        raise InvalidMessageException('AS_MSG header is not 22 bytes long')
+
+    return AerospikeASMSGHeader(*AerospikeASMSGHeaderStruct.unpack(bytes))
