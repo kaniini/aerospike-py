@@ -84,3 +84,60 @@ def unpack_asmsg_header(header: bytes) -> AerospikeASMSGHeader:
         raise InvalidMessageException('AS_MSG header is not 22 bytes long')
 
     return AerospikeASMSGHeader(*AerospikeASMSGHeaderStruct.unpack(bytes))
+
+
+# Aerospike fields are actually locators, i.e. they describe how to locate data rows/documents/whatever.
+AerospikeASMSGFieldHeader = namedtuple('AerospikeASMSGFieldHeader', ['size', 'field_type'])
+AerospikeASMSGFieldHeaderStruct = struct.Struct('>IB')
+
+
+AS_MSG_FIELD_TYPE_NAMESPACE = 0
+AS_MSG_FIELD_TYPE_SET = 1
+AS_MSG_FIELD_TYPE_KEY = 2
+AS_MSG_FIELD_TYPE_BIN = 3
+AS_MSG_FIELD_TYPE_DIGEST_RIPE = 4
+AS_MSG_FIELD_TYPE_DIGEST_RIPE_ARRAY = 6
+AS_MSG_FIELD_TYPE_TRID = 7
+AS_MSG_FIELD_TYPE_SCAN_OPTIONS = 8
+
+
+def pack_asmsg_field(data: bytes, field_type: int) -> bytes:
+    header = AerospikeASMSGFieldHeader(len(data), field_type)
+    return AerospikeASMSGFieldHeaderStruct.pack(*header) + data
+
+
+def unpack_asmsg_field(data: bytes) -> (AerospikeASMSGFieldHeader, bytes):
+    header = AerospikeASMSGFieldHeader(*AerospikeASMSGFieldHeaderStruct.unpack(bytes[0:5]))
+    return (header, bytes[5:])
+
+
+# Aerospike operations describe what to do to the located record(s).
+AerospikeASMSGOperationHeader = namedtuple('AerospikeASMSGOperationHeader', [
+    'size', 'op', 'bin_data_type', 'bin_version', 'bin_name_length'
+])
+AerospikeASMSGOperationHeaderStruct = struct.Struct('>IBBBB')
+
+
+AS_MSG_OP_READ = 1
+AS_MSG_OP_WRITE = 2
+AS_MSG_OP_INCR = 5
+AS_MSG_OP_APPEND = 9
+AS_MSG_OP_PREPEND = 10
+AS_MSG_OP_TOUCH = 11
+
+AS_MSG_OP_MC_INCR = 129
+AS_MSG_OP_MC_APPEND = 130
+AS_MSG_OP_MC_PREPEND = 131
+AS_MSG_OP_MC_TOUCH = 132
+
+
+def pack_asmsg_operation(op: int, bin_data_type: int, bin_name: str, bin_data: bytes) -> bytes:
+    bin_name_enc = bin_name.encode('UTF-8')
+    header = AerospikeASMSGFieldHeader(8 + len(bin_name_enc) + len(bin_data), op, bin_data_type, 0, len(bin_name_enc))
+    return AerospikeASMSGOperationHeaderStruct.pack(*header) + bin_name_enc + bin_data
+
+
+def unpack_asmsg_operation(data: bytes) -> (AerospikeASMSGOperationHeader, str, bytes):
+    header = AerospikeASMSGFieldHeader(*AerospikeASMSGFieldHeaderStruct.unpack(bytes[0:8]))
+    bin_name = bytes[8:header.bin_name_length].decode('UTF-8')
+    return (header, bin_name, bytes[8 + header.bin_name_length:])
