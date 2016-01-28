@@ -167,7 +167,7 @@ def unpack_asmsg(data: bytes) -> (AerospikeASMSGHeader, list, list):
     for i in range(asmsg_hdr.n_ops):
         o_hdr, _, _ = unpack_asmsg_operation(data[pos:8])
         o_hdr, bin_name, bin_payload = unpack_asmsg_operation(data[pos:o_hdr.size])
-        ops += [(f_hdr, bin_name, bin_payload)]
-        pos += f_hdr.size
+        ops += [(o_hdr, bin_name, bin_payload)]
+        pos += o_hdr.size
 
     return asmsg_hdr, fields, ops
