@@ -131,6 +131,9 @@ class AerospikeClient:
     def prepend(self, namespace, set='', key='', bin='', append_blob=''):
         return self._append_op(namespace, set, key, bin, append_blob, aerospike_py.message.AS_MSG_OP_PREPEND)
 
+    def touch(self, namespace, set, key, bin=''):
+        return self._append_op(namespace, set, key, bin, None, aerospike_py.message.AS_MSG_OP_TOUCH)
+
 
 def connect(host: str, port: int) -> AerospikeClient:
     return AerospikeClient(SocketConnection(socket.create_connection((host, port))))
