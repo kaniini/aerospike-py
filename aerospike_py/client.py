@@ -103,5 +103,34 @@ class AerospikeClient:
         return buckets
 
 
+    def _append_op(self, namespace, set='', key='', bin='', append_blob='', op=aerospike_py.message.AS_MSG_OP_APPEND):
+        flags = aerospike_py.message.AS_INFO2_WRITE
+
+        blob = aerospike_py.message.encode_payload(append_blob)
+        bin_cmds = [aerospike_py.message.pack_asmsg_operation(op, blob[1], bin, blob[0])]
+        envelope = aerospike_py.message.pack_asmsg(0, flags, 0, 0, 0, 0,
+            [
+                aerospike_py.message.pack_asmsg_field(namespace.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_NAMESPACE),
+                aerospike_py.message.pack_asmsg_field(set.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_SET),
+                aerospike_py.message.pack_asmsg_field(b'\x03' + key.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_KEY),
+            ],
+            bin_cmds
+        )
+
+        outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
+
+        buckets = {}
+        for op in asmsg_ops:
+            buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
+
+        return buckets
+
+    def append(self, namespace, set='', key='', bin='', append_blob=''):
+        return self._append_op(namespace, set, key, bin, append_blob, aerospike_py.message.AS_MSG_OP_APPEND)
+
+    def prepend(self, namespace, set='', key='', bin='', append_blob=''):
+        return self._append_op(namespace, set, key, bin, append_blob, aerospike_py.message.AS_MSG_OP_PREPEND)
+
+
 def connect(host: str, port: int) -> AerospikeClient:
     return AerospikeClient(SocketConnection(socket.create_connection((host, port))))
