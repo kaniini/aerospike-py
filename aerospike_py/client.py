@@ -1,3 +1,5 @@
+import socket
+
 from aerospike_py.connection import SocketConnection
 from aerospike_py.info import request_info_keys
 import aerospike_py.message
@@ -59,3 +61,7 @@ class AerospikeClient:
             buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
 
         return buckets
+
+
+def connect(host: str, port: int) -> AerospikeClient:
+    return AerospikeClient(SocketConnection(socket.create_connection(host, port)))
