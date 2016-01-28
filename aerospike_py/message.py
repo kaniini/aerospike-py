@@ -1,6 +1,8 @@
 from collections import namedtuple
 import struct
 
+from aerospike_py.connection import Connection
+
 
 class InvalidMessageException(Exception):
     pass
@@ -148,7 +150,7 @@ def unpack_asmsg_operation(data: bytes) -> (AerospikeASMSGOperationHeader, str, 
 
 def pack_asmsg(info1: int, info2: int, info3: int, generation: int, record_ttl: int, transaction_ttl: int, fields: list, ops: list) -> bytes:
     asmsg_hdr = pack_asmsg_header(info1, info2, info3, generation, record_ttl, transaction_ttl, len(fields), len(ops))
-    return b''.join([asmsg_hdr, *fields, *ops])
+    return asmsg_hdr + b''.join(fields) + b''.join(ops)
 
 
 def unpack_asmsg(data: bytes) -> (AerospikeASMSGHeader, list, list):
