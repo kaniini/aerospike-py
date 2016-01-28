@@ -15,7 +15,12 @@ class SocketConnection(Connection):
         self._fd = fd
 
     def read(self, length):
-        return self._fd.recv(length)
+        buf = b''
+        while length > 0:
+            rbuf = self._fd.recv(length)
+            length -= len(rbuf)
+            buf += rbuf
+        return buf
 
     def write(self, buf):
         return self._fd.send(buf)
