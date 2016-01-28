@@ -29,6 +29,6 @@ class AerospikeClient:
 
         buckets = {}
         for op in asmsg_ops:
-            buckets[op[1]] = op[2].decode('UTF-8').strip('\x00')
+            buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
 
         return buckets

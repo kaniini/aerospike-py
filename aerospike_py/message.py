@@ -116,6 +116,20 @@ AS_MSG_PARTICLE_TYPE_LIST = 20
 AS_MSG_PARTICLE_TYPE_GEOJSON = 23
 
 
+_converters = {
+    AS_MSG_PARTICLE_TYPE_NULL: lambda x: None,
+    AS_MSG_PARTICLE_TYPE_INTEGER: lambda x: struct.unpack('<Q', x)[0],
+    AS_MSG_PARTICLE_TYPE_DOUBLE: lambda x: struct.unpack('<d', x)[0],
+    AS_MSG_PARTICLE_TYPE_STRING: lambda x: x.decode('UTF-8').strip('\x00'),
+    AS_MSG_PARTICLE_TYPE_BLOB: lambda x: x,
+}
+
+
+def decode_payload(ptype, payload):
+    decoder = _converters.get(ptype, lambda x: x)
+    return decoder(payload)
+
+
 def pack_asmsg_field(data: bytes, field_type: int) -> bytes:
     header = AerospikeASMSGFieldHeader(len(data) + 1, field_type)
     return AerospikeASMSGFieldHeaderStruct.pack(*header) + data
