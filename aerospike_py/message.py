@@ -105,6 +105,17 @@ AS_MSG_FIELD_TYPE_TRID = 7
 AS_MSG_FIELD_TYPE_SCAN_OPTIONS = 8
 
 
+AS_MSG_PARTICLE_TYPE_NULL = 0
+AS_MSG_PARTICLE_TYPE_INTEGER = 1
+AS_MSG_PARTICLE_TYPE_DOUBLE = 2
+AS_MSG_PARTICLE_TYPE_STRING = 3
+AS_MSG_PARTICLE_TYPE_BLOB = 4
+AS_MSG_PARTICLE_TYPE_PYTHON_BLOB = 9
+AS_MSG_PARTICLE_TYPE_MAP = 19
+AS_MSG_PARTICLE_TYPE_LIST = 20
+AS_MSG_PARTICLE_TYPE_GEOJSON = 23
+
+
 def pack_asmsg_field(data: bytes, field_type: int) -> bytes:
     header = AerospikeASMSGFieldHeader(len(data) + 1, field_type)
     return AerospikeASMSGFieldHeaderStruct.pack(*header) + data
