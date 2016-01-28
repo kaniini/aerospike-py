@@ -64,6 +64,7 @@ AS_INFO2_GENERATION = (1 << 2)
 AS_INFO2_GENERATION_GT = (1 << 3)
 AS_INFO2_GENERATION_DUP = (1 << 4)
 AS_INFO2_CREATE_ONLY = (1 << 5)
+AS_INFO2_CREATE_BIN_ONLY = (1 << 6)
 
 AS_INFO3_LAST = (1 << 0)
 AS_INFO3_COMMIT_MASTER = (1 << 1)
@@ -116,7 +117,7 @@ AS_MSG_PARTICLE_TYPE_LIST = 20
 AS_MSG_PARTICLE_TYPE_GEOJSON = 23
 
 
-_converters = {
+_decoders = {
     AS_MSG_PARTICLE_TYPE_NULL: lambda x: None,
     AS_MSG_PARTICLE_TYPE_INTEGER: lambda x: struct.unpack('<Q', x)[0],
     AS_MSG_PARTICLE_TYPE_DOUBLE: lambda x: struct.unpack('<d', x)[0],
@@ -125,8 +126,24 @@ _converters = {
 }
 
 
+NoneType = type(None)
+
+_encoders = {
+    NoneType: lambda x: (b'', AS_MSG_PARTICLE_TYPE_NULL),
+    int: lambda x: (struct.pack('<Q', x)[0], AS_MSG_PARTICLE_TYPE_INTEGER),
+    float: lambda x: (struct.pack('<d', x)[0], AS_MSG_PARTICLE_TYPE_DOUBLE),
+    str: lambda x: (x.encode('UTF-8'), AS_MSG_PARTICLE_TYPE_STRING),
+    bytes: lambda x: (x, AS_MSG_PARTICLE_TYPE_BLOB),
+}
+
+
+def encode_payload(payload):
+    encoder = _encoders.get(type(payload), lambda x: (b'', AS_MSG_PARTICLE_TYPE_NULL))
+    return encoder(payload)
+
+
 def decode_payload(ptype, payload):
-    decoder = _converters.get(ptype, lambda x: x)
+    decoder = _decoders.get(ptype, lambda x: x)
     return decoder(payload)
 
 
