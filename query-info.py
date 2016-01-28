@@ -1,10 +1,10 @@
 import sys, socket
 
-from aerospike_py.info import request_info_keys
+from aerospike_py.client import AerospikeClient
 from aerospike_py.connection import SocketConnection
 
-sck = SocketConnection(socket.create_connection((sys.argv[1], 3000)))
-header, infokeys = request_info_keys(sck, [
+cli = AerospikeClient(SocketConnection(socket.create_connection((sys.argv[1], 3000))))
+infokeys = cli.info([
     'build', 'edition', 'node', 'service', 'services', 'statistics', 'version'
 ])
 
