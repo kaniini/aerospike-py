@@ -17,6 +17,7 @@ AS_ERR_BIN_EXISTS_ERROR = 6
 AS_ERR_CLUSTER_KEY_MISMATCH = 7
 AS_ERR_SERVER_MEM_ERROR = 8
 
+AS_ERR_INVALID_NAMESPACE = 20
 
 
 error_table = {
@@ -38,9 +39,11 @@ error_table = {
     AS_ERR_BIN_EXISTS_ERROR: "Specified bin already exists",
     AS_ERR_CLUSTER_KEY_MISMATCH: "Cluster key does not match",
     AS_ERR_SERVER_MEM_ERROR: "Out of memory",
+
+    AS_ERR_INVALID_NAMESPACE: "Invalid namespace",
 }
 
 
 class ASMSGProtocolException(Exception):
     def __init__(self, result_code):
-        super(ASMSGProtocolException, self).__init__(error_table.get(result_code, '???'))
+        super(ASMSGProtocolException, self).__init__(error_table.get(result_code, '??? [%d]' % result_code))
