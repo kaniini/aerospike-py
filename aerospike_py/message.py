@@ -1,7 +1,9 @@
 from collections import namedtuple
 import struct
+import hexdump
 
 from aerospike_py.connection import Connection
+from aerospike_py.result_code import ASMSGProtocolException
 
 
 class InvalidMessageException(Exception):
@@ -73,7 +75,7 @@ AS_INFO3_REPLACE_ONLY = (1 << 5)
 AerospikeASMSGHeader = namedtuple('AerospikeASMSGHeader', [
     'header_sz', 'info1', 'info2', 'info3', 'result_code', 'generation', 'record_ttl', 'transaction_ttl', 'n_fields', 'n_ops'
 ])
-AerospikeASMSGHeaderStruct = struct.Struct('>BBBxBIIIHH')
+AerospikeASMSGHeaderStruct = struct.Struct('>BBBBxBIIIHH')
 
 
 def pack_asmsg_header(info1: int, info2: int, info3: int, generation: int, record_ttl: int, transaction_ttl: int, n_fields: int, n_ops: int) -> bytes:
@@ -85,7 +87,7 @@ def unpack_asmsg_header(header: bytes) -> AerospikeASMSGHeader:
     if len(header) < 22:
         raise InvalidMessageException('AS_MSG header is not 22 bytes long')
 
-    return AerospikeASMSGHeader(*AerospikeASMSGHeaderStruct.unpack(bytes))
+    return AerospikeASMSGHeader(*AerospikeASMSGHeaderStruct.unpack(header))
 
 
 # Aerospike fields are actually locators, i.e. they describe how to locate data rows/documents/whatever.
@@ -109,8 +111,8 @@ def pack_asmsg_field(data: bytes, field_type: int) -> bytes:
 
 
 def unpack_asmsg_field(data: bytes) -> (AerospikeASMSGFieldHeader, bytes):
-    header = AerospikeASMSGFieldHeader(*AerospikeASMSGFieldHeaderStruct.unpack(bytes[0:5]))
-    return (header, bytes[5:])
+    header = AerospikeASMSGFieldHeader(*AerospikeASMSGFieldHeaderStruct.unpack(data[0:5]))
+    return (header, data[5:])
 
 
 # Aerospike operations describe what to do to the located record(s).
@@ -135,17 +137,17 @@ AS_MSG_OP_MC_TOUCH = 132
 
 def pack_asmsg_operation(op: int, bin_data_type: int, bin_name: str, bin_data: bytes) -> bytes:
     bin_name_enc = bin_name.encode('UTF-8')
-    header = AerospikeASMSGFieldHeader(8 + len(bin_name_enc) + len(bin_data), op, bin_data_type, 0, len(bin_name_enc))
+    header = AerospikeASMSGOperationHeader(8 + len(bin_name_enc) + len(bin_data), op, bin_data_type, 0, len(bin_name_enc))
     return AerospikeASMSGOperationHeaderStruct.pack(*header) + bin_name_enc + bin_data
 
 
 def unpack_asmsg_operation(data: bytes) -> (AerospikeASMSGOperationHeader, str, bytes):
-    header = AerospikeASMSGFieldHeader(*AerospikeASMSGFieldHeaderStruct.unpack(bytes[0:8]))
+    header = AerospikeASMSGOperationHeader(*AerospikeASMSGOperationHeaderStruct.unpack(data[0:8]))
     if len(data) == 8:
         return header, None, None
 
-    bin_name = bytes[8:header.bin_name_length].decode('UTF-8')
-    return (header, bin_name, bytes[8 + header.bin_name_length:])
+    bin_name = data[8:header.bin_name_length].decode('UTF-8')
+    return (header, bin_name, data[8 + header.bin_name_length:])
 
 
 def pack_asmsg(info1: int, info2: int, info3: int, generation: int, record_ttl: int, transaction_ttl: int, fields: list, ops: list) -> bytes:
@@ -181,7 +183,15 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
     hdr_payload = conn.read(8)
     header, _ = unpack_message(hdr_payload)
 
-    header, payload = unpack_message(hdr_payload + conn.read(header.sz))
+    data = hdr_payload + conn.read(header.sz)
+
+    print("From Aerospike:")
+    hexdump.hexdump(data)
+
+    header, payload = unpack_message(data)
     asmsg_header, asmsg_fields, asmsg_ops = unpack_asmsg(payload)
+
+    if asmsg_header.result_code != 0:
+        raise ASMSGProtocolException(asmsg_header.result_code)
 
     return header, asmsg_header, asmsg_fields, asmsg_ops
