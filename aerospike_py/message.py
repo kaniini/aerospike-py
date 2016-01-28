@@ -171,3 +171,15 @@ def unpack_asmsg(data: bytes) -> (AerospikeASMSGHeader, list, list):
         pos += o_hdr.size
 
     return asmsg_hdr, fields, ops
+
+
+def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, AerospikeASMSGHeader, list, list):
+    conn.write(data)
+
+    hdr_payload = conn.read(8)
+    header, _ = unpack_message(hdr_payload)
+
+    header, payload = unpack_message(hdr_payload + conn.read(header.sz))
+    asmsg_header, asmsg_fields, asmsg_ops = unpack_asmsg(payload)
+
+    return header, asmsg_header, asmsg_fields, asmsg_ops
