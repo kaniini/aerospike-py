@@ -106,7 +106,7 @@ AS_MSG_FIELD_TYPE_SCAN_OPTIONS = 8
 
 
 def pack_asmsg_field(data: bytes, field_type: int) -> bytes:
-    header = AerospikeASMSGFieldHeader(len(data), field_type)
+    header = AerospikeASMSGFieldHeader(len(data) + 1, field_type)
     return AerospikeASMSGFieldHeaderStruct.pack(*header) + data
 
 
@@ -137,7 +137,7 @@ AS_MSG_OP_MC_TOUCH = 132
 
 def pack_asmsg_operation(op: int, bin_data_type: int, bin_name: str, bin_data: bytes) -> bytes:
     bin_name_enc = bin_name.encode('UTF-8')
-    header = AerospikeASMSGOperationHeader(8 + len(bin_name_enc) + len(bin_data), op, bin_data_type, 0, len(bin_name_enc))
+    header = AerospikeASMSGOperationHeader(8 + len(bin_name_enc) + 1 + len(bin_data) + 1, op, bin_data_type, 0, len(bin_name_enc))
     return AerospikeASMSGOperationHeaderStruct.pack(*header) + bin_name_enc + bin_data
 
 
@@ -146,7 +146,7 @@ def unpack_asmsg_operation(data: bytes) -> (AerospikeASMSGOperationHeader, str, 
     if len(data) == 8:
         return header, None, None
 
-    bin_name = data[8:header.bin_name_length].decode('UTF-8')
+    bin_name = data[8:8 + header.bin_name_length].decode('UTF-8')
     return (header, bin_name, data[8 + header.bin_name_length:])
 
 
@@ -162,17 +162,17 @@ def unpack_asmsg(data: bytes) -> (AerospikeASMSGHeader, list, list):
     pos = 22
     fields = []
     for i in range(asmsg_hdr.n_fields):
-        f_hdr, _ = unpack_asmsg_field(data[pos:5])
-        f_hdr, payload = unpack_asmsg_field(data[pos:f_hdr.size])
+        f_hdr, _ = unpack_asmsg_field(data[pos:(pos + 5)])
+        f_hdr, payload = unpack_asmsg_field(data[pos:(pos + 5 + f_hdr.size)])
         fields += [(f_hdr, payload)]
-        pos += f_hdr.size
+        pos += (4 + f_hdr.size)
 
     ops = []
     for i in range(asmsg_hdr.n_ops):
-        o_hdr, _, _ = unpack_asmsg_operation(data[pos:8])
-        o_hdr, bin_name, bin_payload = unpack_asmsg_operation(data[pos:o_hdr.size])
+        o_hdr, _, _ = unpack_asmsg_operation(data[pos:(pos + 8)])
+        o_hdr, bin_name, bin_payload = unpack_asmsg_operation(data[pos:(pos + 5 + o_hdr.size)])
         ops += [(o_hdr, bin_name, bin_payload)]
-        pos += o_hdr.size
+        pos += (4 + o_hdr.size)
 
     return asmsg_hdr, fields, ops
 
@@ -186,9 +186,6 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
     header, _ = unpack_message(hdr_payload)
 
     data = hdr_payload + conn.read(header.sz)
-
-    print("From Aerospike:")
-    hexdump.hexdump(data)
 
     header, payload = unpack_message(data)
     asmsg_header, asmsg_fields, asmsg_ops = unpack_asmsg(payload)
