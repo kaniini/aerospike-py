@@ -18,7 +18,7 @@ AS_ERR_CLUSTER_KEY_MISMATCH = 7
 AS_ERR_SERVER_MEM_ERROR = 8
 
 AS_ERR_INVALID_NAMESPACE = 20
-
+AS_ERR_BIN_NAME_TOO_LONG = 21
 
 error_table = {
     AS_ERR_TYPE_NOT_SUPPORTED: "Type not supported",
@@ -41,6 +41,7 @@ error_table = {
     AS_ERR_SERVER_MEM_ERROR: "Out of memory",
 
     AS_ERR_INVALID_NAMESPACE: "Invalid namespace",
+    AS_ERR_BIN_NAME_TOO_LONG: "Bin names must be less than 14 bytes",
 }
 
 
