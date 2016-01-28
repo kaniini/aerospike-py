@@ -81,5 +81,27 @@ class AerospikeClient:
         return buckets
 
 
+    def incr(self, namespace, set='', key='', bin='', incr_by=0):
+        flags = aerospike_py.message.AS_INFO2_WRITE
+
+        bin_cmds = [aerospike_py.message.pack_asmsg_operation(aerospike_py.message.AS_MSG_OP_INCR, 1, bin, aerospike_py.message.encode_payload(incr_by)[0])]
+        envelope = aerospike_py.message.pack_asmsg(0, flags, 0, 0, 0, 0,
+            [
+                aerospike_py.message.pack_asmsg_field(namespace.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_NAMESPACE),
+                aerospike_py.message.pack_asmsg_field(set.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_SET),
+                aerospike_py.message.pack_asmsg_field(b'\x03' + key.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_KEY),
+            ],
+            bin_cmds
+        )
+
+        outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
+
+        buckets = {}
+        for op in asmsg_ops:
+            buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
+
+        return buckets
+
+
 def connect(host: str, port: int) -> AerospikeClient:
     return AerospikeClient(SocketConnection(socket.create_connection((host, port))))
