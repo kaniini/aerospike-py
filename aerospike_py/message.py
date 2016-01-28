@@ -1,6 +1,5 @@
 from collections import namedtuple
 import struct
-import hexdump
 
 from aerospike_py.connection import Connection
 from aerospike_py.result_code import ASMSGProtocolException
@@ -130,9 +129,9 @@ NoneType = type(None)
 
 _encoders = {
     NoneType: lambda x: (b'', AS_MSG_PARTICLE_TYPE_NULL),
-    int: lambda x: (struct.pack('<Q', x)[0], AS_MSG_PARTICLE_TYPE_INTEGER),
-    float: lambda x: (struct.pack('<d', x)[0], AS_MSG_PARTICLE_TYPE_DOUBLE),
-    str: lambda x: (x.encode('UTF-8'), AS_MSG_PARTICLE_TYPE_STRING),
+    int: lambda x: (struct.pack('<Q', x), AS_MSG_PARTICLE_TYPE_INTEGER),
+    float: lambda x: (struct.pack('<d', x), AS_MSG_PARTICLE_TYPE_DOUBLE),
+    str: lambda x: (x.encode('UTF-8') + b'\x00', AS_MSG_PARTICLE_TYPE_STRING),
     bytes: lambda x: (x, AS_MSG_PARTICLE_TYPE_BLOB),
 }
 
@@ -179,7 +178,7 @@ AS_MSG_OP_MC_TOUCH = 132
 
 def pack_asmsg_operation(op: int, bin_data_type: int, bin_name: str, bin_data: bytes) -> bytes:
     bin_name_enc = bin_name.encode('UTF-8')
-    header = AerospikeASMSGOperationHeader(8 + len(bin_name_enc) + 1 + len(bin_data) + 1, op, bin_data_type, 0, len(bin_name_enc))
+    header = AerospikeASMSGOperationHeader(len(bin_name_enc) + len(bin_data) + 4, op, bin_data_type, 0, len(bin_name_enc))
     return AerospikeASMSGOperationHeaderStruct.pack(*header) + bin_name_enc + bin_data
 
 
