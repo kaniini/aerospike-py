@@ -139,5 +139,35 @@ def pack_asmsg_operation(op: int, bin_data_type: int, bin_name: str, bin_data: b
 
 def unpack_asmsg_operation(data: bytes) -> (AerospikeASMSGOperationHeader, str, bytes):
     header = AerospikeASMSGFieldHeader(*AerospikeASMSGFieldHeaderStruct.unpack(bytes[0:8]))
+    if len(data) == 8:
+        return header, None, None
+
     bin_name = bytes[8:header.bin_name_length].decode('UTF-8')
     return (header, bin_name, bytes[8 + header.bin_name_length:])
+
+
+def pack_asmsg(info1: int, info2: int, info3: int, generation: int, record_ttl: int, transaction_ttl: int, fields: list, ops: list) -> bytes:
+    asmsg_hdr = pack_asmsg_header(info1, info2, info3, generation, record_ttl, transaction_ttl, len(fields), len(ops))
+    return b''.join([asmsg_hdr, *fields, *ops])
+
+
+def unpack_asmsg(data: bytes) -> (AerospikeASMSGHeader, list, list):
+    asmsg_hdr = unpack_asmsg_header(data[0:22])
+
+    # next comes fields:
+    pos = 22
+    fields = []
+    for i in range(asmsg_hdr.n_fields):
+        f_hdr, _ = unpack_asmsg_field(data[pos:5])
+        f_hdr, payload = unpack_asmsg_field(data[pos:f_hdr.size])
+        fields += [(f_hdr, payload)]
+        pos += f_hdr.size
+
+    ops = []
+    for i in range(asmsg_hdr.n_ops):
+        o_hdr, _, _ = unpack_asmsg_operation(data[pos:8])
+        o_hdr, bin_name, bin_payload = unpack_asmsg_operation(data[pos:o_hdr.size])
+        ops += [(f_hdr, bin_name, bin_payload)]
+        pos += f_hdr.size
+
+    return asmsg_hdr, fields, ops
