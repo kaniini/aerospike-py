@@ -1,5 +1,4 @@
 import sys, socket
-import hexdump
 
 from pprint import pprint
 from aerospike_py.connection import SocketConnection
