@@ -15,11 +15,12 @@ class SocketConnection(Connection):
         self._fd = fd
 
     def read(self, length):
-        buf = b''
+        buf = bytearray(length)
+        view = memoryview(buf)
         while length > 0:
-            rbuf = self._fd.recv(length)
-            length -= len(rbuf)
-            buf += rbuf
+            nbytes = self._fd.recv_into(view, length)
+            view = view[nbytes:]
+            length -= nbytes
         return buf
 
     def write(self, buf):
