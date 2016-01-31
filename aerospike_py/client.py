@@ -1,8 +1,16 @@
 import socket
+import hashlib
 
 from aerospike_py.connection import SocketConnection
 from aerospike_py.info import request_info_keys
 import aerospike_py.message
+
+
+def hash_key(set='', key=''):
+    h = hashlib.new('ripemd160')
+    h.update(set.encode('UTF-8'))
+    h.update(b'\x03' + key.encode('UTF-8'))
+    return h.digest()
 
 
 class AerospikeClient:
@@ -21,8 +29,7 @@ class AerospikeClient:
         envelope = aerospike_py.message.pack_asmsg(flags, 0, 0, 0, 0, 0,
             [
                 aerospike_py.message.pack_asmsg_field(namespace.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_NAMESPACE),
-                aerospike_py.message.pack_asmsg_field(set.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_SET),
-                aerospike_py.message.pack_asmsg_field(b'\x03' + key.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_KEY),
+                aerospike_py.message.pack_asmsg_field(hash_key(set, key), aerospike_py.message.AS_MSG_FIELD_TYPE_DIGEST_RIPE),
             ],
             bin_cmds
         )
@@ -48,8 +55,7 @@ class AerospikeClient:
         envelope = aerospike_py.message.pack_asmsg(0, flags, 0, 0, 0, 0,
             [
                 aerospike_py.message.pack_asmsg_field(namespace.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_NAMESPACE),
-                aerospike_py.message.pack_asmsg_field(set.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_SET),
-                aerospike_py.message.pack_asmsg_field(b'\x03' + key.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_KEY),
+                aerospike_py.message.pack_asmsg_field(hash_key(set, key), aerospike_py.message.AS_MSG_FIELD_TYPE_DIGEST_RIPE),
             ],
             bin_cmds
         )
@@ -66,8 +72,7 @@ class AerospikeClient:
         envelope = aerospike_py.message.pack_asmsg(0, aerospike_py.message.AS_INFO2_WRITE | aerospike_py.message.AS_INFO2_DELETE, 0, 0, 0, 0,
             [
                 aerospike_py.message.pack_asmsg_field(namespace.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_NAMESPACE),
-                aerospike_py.message.pack_asmsg_field(set.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_SET),
-                aerospike_py.message.pack_asmsg_field(b'\x03' + key.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_KEY),
+                aerospike_py.message.pack_asmsg_field(hash_key(set, key), aerospike_py.message.AS_MSG_FIELD_TYPE_DIGEST_RIPE),
             ],
             []
         )
@@ -88,8 +93,7 @@ class AerospikeClient:
         envelope = aerospike_py.message.pack_asmsg(0, flags, 0, 0, 0, 0,
             [
                 aerospike_py.message.pack_asmsg_field(namespace.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_NAMESPACE),
-                aerospike_py.message.pack_asmsg_field(set.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_SET),
-                aerospike_py.message.pack_asmsg_field(b'\x03' + key.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_KEY),
+                aerospike_py.message.pack_asmsg_field(hash_key(set, key), aerospike_py.message.AS_MSG_FIELD_TYPE_DIGEST_RIPE),
             ],
             bin_cmds
         )
@@ -111,8 +115,7 @@ class AerospikeClient:
         envelope = aerospike_py.message.pack_asmsg(0, flags, 0, 0, 0, 0,
             [
                 aerospike_py.message.pack_asmsg_field(namespace.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_NAMESPACE),
-                aerospike_py.message.pack_asmsg_field(set.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_SET),
-                aerospike_py.message.pack_asmsg_field(b'\x03' + key.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_KEY),
+                aerospike_py.message.pack_asmsg_field(hash_key(set, key), aerospike_py.message.AS_MSG_FIELD_TYPE_DIGEST_RIPE),
             ],
             bin_cmds
         )
