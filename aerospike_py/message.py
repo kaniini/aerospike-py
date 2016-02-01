@@ -118,8 +118,8 @@ AS_MSG_PARTICLE_TYPE_GEOJSON = 23
 
 _decoders = {
     AS_MSG_PARTICLE_TYPE_NULL: lambda x: None,
-    AS_MSG_PARTICLE_TYPE_INTEGER: lambda x: struct.unpack('<Q', x)[0],
-    AS_MSG_PARTICLE_TYPE_DOUBLE: lambda x: struct.unpack('<d', x)[0],
+    AS_MSG_PARTICLE_TYPE_INTEGER: lambda x: struct.unpack('>Q', x)[0],
+    AS_MSG_PARTICLE_TYPE_DOUBLE: lambda x: struct.unpack('>d', x)[0],
     AS_MSG_PARTICLE_TYPE_STRING: lambda x: x.decode('UTF-8').strip('\x00'),
     AS_MSG_PARTICLE_TYPE_BLOB: lambda x: x,
 }
@@ -129,8 +129,8 @@ NoneType = type(None)
 
 _encoders = {
     NoneType: lambda x: (b'', AS_MSG_PARTICLE_TYPE_NULL),
-    int: lambda x: (struct.pack('<Q', x), AS_MSG_PARTICLE_TYPE_INTEGER),
-    float: lambda x: (struct.pack('<d', x), AS_MSG_PARTICLE_TYPE_DOUBLE),
+    int: lambda x: (struct.pack('>Q', x), AS_MSG_PARTICLE_TYPE_INTEGER),
+    float: lambda x: (struct.pack('>d', x), AS_MSG_PARTICLE_TYPE_DOUBLE),
     str: lambda x: (x.encode('UTF-8') + b'\x00', AS_MSG_PARTICLE_TYPE_STRING),
     bytes: lambda x: (x, AS_MSG_PARTICLE_TYPE_BLOB),
 }
