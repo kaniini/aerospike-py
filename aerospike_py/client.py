@@ -20,6 +20,13 @@ class AerospikeClient:
     def info(self, keys):
         return request_info_keys(self.sck, keys)[1]
 
+    def _process_bucket(self, asmsg_ops):
+        buckets = {}
+        for op in asmsg_ops:
+            buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
+
+        return buckets
+
     def get(self, namespace, set='', key='', bins=[], record_ttl=0):
         flags = aerospike_py.message.AS_INFO1_READ
         if not bins:
@@ -35,12 +42,29 @@ class AerospikeClient:
         )
 
         outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
+        return self._process_bucket(asmsg_ops)
 
-        buckets = {}
-        for op in asmsg_ops:
-            buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
+    def mget(self, namespace, groups=[], bins={}, record_ttl=0):
+        flags = aerospike_py.message.AS_INFO1_READ # | aerospike_py.message.AS_INFO1_BATCH
+        if not bins:
+            flags |= aerospike_py.message.AS_INFO1_GET_ALL
 
-        return buckets
+        bin_cmds = [aerospike_py.message.pack_asmsg_operation(aerospike_py.message.AS_MSG_OP_READ, 0, bn, b'') for bn in bins]
+
+        hashes = b''
+        for k in groups:
+            hashes += hash_key(k[0], k[1])
+
+        envelope = aerospike_py.message.pack_asmsg(flags, 0, 0, 0, record_ttl, 0,
+            [
+                aerospike_py.message.pack_asmsg_field(namespace.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_NAMESPACE),
+                aerospike_py.message.pack_asmsg_field(hashes, aerospike_py.message.AS_MSG_FIELD_TYPE_DIGEST_RIPE_ARRAY),
+            ],
+            bin_cmds
+        )
+
+        messages = aerospike_py.message.submit_multi_message(self.sck, envelope)
+        return [self._process_bucket(x[3]) for x in messages]
 
     def put(self, namespace, set='', key='', bins={}, create_only=False, bin_create_only=False, record_ttl=0):
         flags = aerospike_py.message.AS_INFO2_WRITE
@@ -61,7 +85,6 @@ class AerospikeClient:
         )
 
         outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
-
         buckets = {}
         for op in asmsg_ops:
             buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
@@ -140,3 +163,4 @@ class AerospikeClient:
 
 def connect(host: str, port: int) -> AerospikeClient:
     return AerospikeClient(SocketConnection(socket.create_connection((host, port))))
+

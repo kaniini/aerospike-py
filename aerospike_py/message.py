@@ -1,5 +1,5 @@
 from collections import namedtuple
-import struct
+import struct, hexdump
 
 from aerospike_py.connection import Connection
 from aerospike_py.result_code import ASMSGProtocolException
@@ -119,8 +119,8 @@ AS_MSG_PARTICLE_TYPE_GEOJSON = 23
 
 _decoders = {
     AS_MSG_PARTICLE_TYPE_NULL: lambda x: None,
-    AS_MSG_PARTICLE_TYPE_INTEGER: lambda x: struct.unpack('>Q', x)[0],
-    AS_MSG_PARTICLE_TYPE_DOUBLE: lambda x: struct.unpack('>d', x)[0],
+    AS_MSG_PARTICLE_TYPE_INTEGER: lambda x: struct.unpack('>Q', x[0:8])[0],
+    AS_MSG_PARTICLE_TYPE_DOUBLE: lambda x: struct.unpack('>d', x[0:8])[0],
     AS_MSG_PARTICLE_TYPE_STRING: lambda x: x.decode('UTF-8').strip('\x00'),
     AS_MSG_PARTICLE_TYPE_BLOB: lambda x: x,
 }
@@ -216,7 +216,7 @@ def unpack_asmsg(data: bytes) -> (AerospikeASMSGHeader, list, list):
         ops += [(o_hdr, bin_name, bin_payload)]
         pos += (4 + o_hdr.size)
 
-    return asmsg_hdr, fields, ops
+    return asmsg_hdr, fields, ops, data[pos:]
 
 
 def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, AerospikeASMSGHeader, list, list):
@@ -230,9 +230,38 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
     data = hdr_payload + conn.read(header.sz)
 
     header, payload = unpack_message(data)
-    asmsg_header, asmsg_fields, asmsg_ops = unpack_asmsg(payload)
+    asmsg_header, asmsg_fields, asmsg_ops, _ = unpack_asmsg(payload)
 
     if asmsg_header.result_code != 0:
         raise ASMSGProtocolException(asmsg_header.result_code)
 
     return header, asmsg_header, asmsg_fields, asmsg_ops
+
+
+def submit_multi_message(conn: Connection, data: bytes) -> list:
+    ohdr = AerospikeOuterHeader(2, 3, len(data))
+    buf = pack_outer_header(ohdr) + data
+    conn.write(buf)
+
+    not_last = True
+    messages = []
+
+    while not_last:
+        hdr_payload = conn.read(8)
+        header, _ = unpack_message(hdr_payload)
+
+        data = hdr_payload + conn.read(header.sz)
+
+        header, payload = unpack_message(data)
+        while payload:
+            asmsg_header, asmsg_fields, asmsg_ops, payload = unpack_asmsg(payload)
+            messages += [(header, asmsg_header, asmsg_fields, asmsg_ops)]
+
+        if asmsg_header.result_code not in (0, 2):
+            raise ASMSGProtocolException(asmsg_header.result_code)
+
+        if (asmsg_header.info3 & AS_INFO3_LAST) == AS_INFO3_LAST:
+            not_last = False
+            continue
+
+    return messages
