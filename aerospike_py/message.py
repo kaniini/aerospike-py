@@ -54,6 +54,7 @@ def unpack_message(envelope: bytes, whole_message: bool = False) -> (AerospikeOu
 
 AS_INFO1_READ = (1 << 0)
 AS_INFO1_GET_ALL = (1 << 1)
+AS_INFO1_BATCH = (1 << 3)
 AS_INFO1_NOBINDATA = (1 << 5)
 AS_INFO1_CONSISTENCY_ALL = (1 << 6)
 
