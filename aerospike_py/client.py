@@ -27,7 +27,35 @@ class AerospikeClient:
 
         return buckets
 
-    def get(self, namespace, set='', key='', bins=[], record_ttl=0):
+    def _submit_message(self, envelope, retry_count=3):
+        while retry_count:
+            try:
+                outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
+                return self._process_bucket(asmsg_ops)
+            except ASMSGProtocolException as e:
+                if e.result_code not in (14,):
+                    raise
+                retry_count -= 1
+                if not retry_count:
+                    raise
+
+        return buckets
+
+    def _submit_batch(self, envelope, retry_count=3):
+        while retry_count:
+            try:
+                messages = aerospike_py.message.submit_multi_message(self.sck, envelope)
+                return [self._process_bucket(x[3]) for x in messages]
+            except ASMSGProtocolException as e:
+                if e.result_code not in (14,):
+                    raise
+                retry_count -= 1
+                if not retry_count:
+                    raise
+
+        return buckets
+
+    def get(self, namespace, set='', key='', bins=[], record_ttl=0, retry_count=3):
         flags = aerospike_py.message.AS_INFO1_READ
         if not bins:
             flags |= aerospike_py.message.AS_INFO1_GET_ALL
@@ -41,10 +69,9 @@ class AerospikeClient:
             bin_cmds
         )
 
-        outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
-        return self._process_bucket(asmsg_ops)
+        return self._submit_message(envelope, retry_count)
 
-    def mget(self, namespace, groups=[], bins={}, record_ttl=0):
+    def mget(self, namespace, groups=[], bins={}, record_ttl=0, retry_count=3):
         flags = aerospike_py.message.AS_INFO1_READ # | aerospike_py.message.AS_INFO1_BATCH
         if not bins:
             flags |= aerospike_py.message.AS_INFO1_GET_ALL
@@ -63,10 +90,9 @@ class AerospikeClient:
             bin_cmds
         )
 
-        messages = aerospike_py.message.submit_multi_message(self.sck, envelope)
-        return [self._process_bucket(x[3]) for x in messages]
+        return self._submit_batch(envelope, retry_count)
 
-    def put(self, namespace, set='', key='', bins={}, create_only=False, bin_create_only=False, record_ttl=0):
+    def put(self, namespace, set='', key='', bins={}, create_only=False, bin_create_only=False, record_ttl=0, retry_count=3):
         flags = aerospike_py.message.AS_INFO2_WRITE
         if create_only:
             flags |= aerospike_py.message.AS_INFO2_CREATE_ONLY
@@ -84,14 +110,9 @@ class AerospikeClient:
             bin_cmds
         )
 
-        outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
-        buckets = {}
-        for op in asmsg_ops:
-            buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
+        return self._submit_message(envelope, retry_count)
 
-        return buckets
-
-    def delete(self, namespace, set='', key='', record_ttl=0):
+    def delete(self, namespace, set='', key='', record_ttl=0, retry_count=3):
         envelope = aerospike_py.message.pack_asmsg(0, aerospike_py.message.AS_INFO2_WRITE | aerospike_py.message.AS_INFO2_DELETE, 0, 0, record_ttl, 0,
             [
                 aerospike_py.message.pack_asmsg_field(namespace.encode('UTF-8'), aerospike_py.message.AS_MSG_FIELD_TYPE_NAMESPACE),
@@ -100,16 +121,9 @@ class AerospikeClient:
             []
         )
 
-        outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
+        return self._submit_message(envelope, retry_count)
 
-        buckets = {}
-        for op in asmsg_ops:
-            buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
-
-        return buckets
-
-
-    def incr(self, namespace, set='', key='', bin='', incr_by=0, record_ttl=0):
+    def incr(self, namespace, set='', key='', bin='', incr_by=0, record_ttl=0, retry_count=3):
         flags = aerospike_py.message.AS_INFO2_WRITE
 
         bin_cmds = [aerospike_py.message.pack_asmsg_operation(aerospike_py.message.AS_MSG_OP_INCR, 1, bin, aerospike_py.message.encode_payload(incr_by)[0])]
@@ -121,16 +135,9 @@ class AerospikeClient:
             bin_cmds
         )
 
-        outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
+        return self._submit_message(envelope, retry_count)
 
-        buckets = {}
-        for op in asmsg_ops:
-            buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
-
-        return buckets
-
-
-    def _append_op(self, namespace, set='', key='', bin='', append_blob='', op=aerospike_py.message.AS_MSG_OP_APPEND, record_ttl=0):
+    def _append_op(self, namespace, set='', key='', bin='', append_blob='', op=aerospike_py.message.AS_MSG_OP_APPEND, record_ttl=0, retry_count=3):
         flags = aerospike_py.message.AS_INFO2_WRITE
 
         blob = aerospike_py.message.encode_payload(append_blob)
@@ -143,13 +150,7 @@ class AerospikeClient:
             bin_cmds
         )
 
-        outer, asmsg_hdr, asmsg_fields, asmsg_ops = aerospike_py.message.submit_message(self.sck, envelope)
-
-        buckets = {}
-        for op in asmsg_ops:
-            buckets[op[1]] = aerospike_py.message.decode_payload(op[0].bin_data_type, op[2])
-
-        return buckets
+        return self._submit_message(envelope, retry_count)
 
     def append(self, namespace, set='', key='', bin='', append_blob='', record_ttl=0):
         return self._append_op(namespace, set, key, bin, append_blob, aerospike_py.message.AS_MSG_OP_APPEND, record_ttl)
