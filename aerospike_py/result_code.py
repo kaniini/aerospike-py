@@ -52,3 +52,4 @@ error_table = {
 class ASMSGProtocolException(Exception):
     def __init__(self, result_code):
         super(ASMSGProtocolException, self).__init__(error_table.get(result_code, '??? [%d]' % result_code))
+        self.result_code = result_code
