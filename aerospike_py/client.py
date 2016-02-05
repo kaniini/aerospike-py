@@ -3,6 +3,7 @@ import hashlib
 
 from aerospike_py.connection import SocketConnection
 from aerospike_py.info import request_info_keys
+from aerospike_py.result_code import ASMSGProtocolException
 import aerospike_py.message
 
 
