@@ -1,5 +1,5 @@
 from collections import namedtuple
-import struct, hexdump
+import struct
 
 from aerospike_py.connection import Connection
 from aerospike_py.result_code import ASMSGProtocolException
