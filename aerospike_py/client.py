@@ -4,6 +4,7 @@ import hashlib
 from aerospike_py.connection import SocketConnection
 from aerospike_py.info import request_info_keys
 from aerospike_py.result_code import ASMSGProtocolException
+from aerospike_py.message import ASIOException
 import aerospike_py.message
 
 
@@ -39,6 +40,8 @@ class AerospikeClient:
                 retry_count -= 1
                 if not retry_count:
                     raise
+            except ASIOException as e:
+                return None
 
         return buckets
 
@@ -53,6 +56,8 @@ class AerospikeClient:
                 retry_count -= 1
                 if not retry_count:
                     raise
+            except ASIOException as e:
+                return None
 
         return buckets
 

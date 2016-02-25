@@ -5,6 +5,10 @@ from aerospike_py.connection import Connection
 from aerospike_py.result_code import ASMSGProtocolException
 
 
+class ASIOException(Exception):
+    pass
+
+
 class InvalidMessageException(Exception):
     pass
 
@@ -225,6 +229,9 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
     conn.write(buf)
 
     hdr_payload = conn.read(8)
+    if not hdr_payload:
+        raise ASIOException('read')
+
     header, _ = unpack_message(hdr_payload)
 
     data = hdr_payload + conn.read(header.sz)
@@ -249,6 +256,9 @@ def submit_multi_message(conn: Connection, data: bytes) -> list:
     while not_last:
         hdr_payload = conn.read(8)
         header, _ = unpack_message(hdr_payload)
+
+        if not hdr_payload:
+            raise ASIOException('read')
 
         data = hdr_payload + conn.read(header.sz)
 
