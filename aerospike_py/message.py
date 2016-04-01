@@ -1,3 +1,4 @@
+import asyncio
 from collections import namedtuple
 import struct
 
@@ -223,18 +224,20 @@ def unpack_asmsg(data: bytes) -> (AerospikeASMSGHeader, list, list):
     return asmsg_hdr, fields, ops, data[pos:]
 
 
+@asyncio.coroutine
 def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, AerospikeASMSGHeader, list, list):
     ohdr = AerospikeOuterHeader(2, 3, len(data))
     buf = pack_outer_header(ohdr) + data
-    conn.write(buf)
+    yield from conn.write(buf)
 
-    hdr_payload = conn.read(8)
+    hdr_payload = yield from conn.read(8)
     if not hdr_payload:
         raise ASIOException('read')
 
     header, _ = unpack_message(hdr_payload)
 
-    data = hdr_payload + conn.read(header.sz)
+    data = hdr_payload
+    data += yield from conn.read(header.sz)
 
     header, payload = unpack_message(data)
     asmsg_header, asmsg_fields, asmsg_ops, _ = unpack_asmsg(payload)
@@ -245,22 +248,24 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
     return header, asmsg_header, asmsg_fields, asmsg_ops
 
 
+@asyncio.coroutine
 def submit_multi_message(conn: Connection, data: bytes) -> list:
     ohdr = AerospikeOuterHeader(2, 3, len(data))
     buf = pack_outer_header(ohdr) + data
-    conn.write(buf)
+    yield from conn.write(buf)
 
     not_last = True
     messages = []
 
     while not_last:
-        hdr_payload = conn.read(8)
+        hdr_payload = yield from conn.read(8)
         header, _ = unpack_message(hdr_payload)
 
         if not hdr_payload:
             raise ASIOException('read')
 
-        data = hdr_payload + conn.read(header.sz)
+        data = hdr_payload
+        data += yield from conn.read(header.sz)
 
         header, payload = unpack_message(data)
         while payload:
