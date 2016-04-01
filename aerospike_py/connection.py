@@ -1,3 +1,10 @@
+import asyncio
+from logging import getLogger
+
+
+LOGGER = getLogger(__name__)
+
+
 class Connection:
     """Connection classes simply provide an interface specification for abstracting I/O.
     They can be used with Twisted, Eventlet, AsyncIO, etc. without problem.
@@ -9,19 +16,21 @@ class Connection:
         pass
 
 
-class SocketConnection(Connection):
-    """SocketConnections are Connection instances which assume a functional Sockets API."""
-    def __init__(self, fd):
-        self._fd = fd
+class AsyncConnection(Connection):
+    """A Connection subclass which uses AsyncIO."""
+    def __init__(self, host: str, port: int):
+        conn = asyncio.open_connection(host, port)
+        loop = asyncio.get_event_loop()
+        try:
+            (self.reader, self.writer) = loop.run_until_complete(conn)
+        except OSError:
+            LOGGER.exception("Can't connect to Aerospike")
+            self.reader = self.writer = None
 
-    def read(self, length):
-        buf = bytearray(length)
-        view = memoryview(buf)
-        while length > 0:
-            nbytes = self._fd.recv_into(view, length)
-            view = view[nbytes:]
-            length -= nbytes
-        return buf
+    def read(self, length: int):
+        data = yield from self.reader.readexactly(length)
+        return data
 
     def write(self, buf):
-        return self._fd.send(buf)
+        self.writer.write(buf)
+        yield from self.writer.drain()

@@ -1,15 +1,20 @@
+import asyncio
+
 from aerospike_py.connection import Connection
 from aerospike_py.message import pack_message, unpack_message, AerospikeOuterHeader
 
 
+@asyncio.coroutine
 def request_info_keys(conn: Connection, commands: list) -> (AerospikeOuterHeader, dict):
     payload = pack_message('\n'.join(commands).encode('UTF-8'), 1)
     conn.write(payload)
 
-    hdr_payload = conn.read(8)
+    hdr_payload = yield from conn.read(8)
     header, _ = unpack_message(hdr_payload)
 
-    header, payload = unpack_message(hdr_payload + conn.read(header.sz))
+    message = hdr_payload
+    message += yield from conn.read(header.sz)
+    header, payload = unpack_message(message)
     lines = payload.decode('UTF-8')
 
     infokeys = {}
