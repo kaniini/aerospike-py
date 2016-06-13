@@ -30,13 +30,13 @@ class AerospikeClient:
         return buckets
 
     @asyncio.coroutine
-    def _submit_message(self, envelope, retry_count=3):
+    def _submit_message(self, envelope, retry_count=3, retry_excs=(14,)):
         while retry_count:
             try:
                 outer, asmsg_hdr, asmsg_fields, asmsg_ops = yield from aerospike_py.message.submit_message(self.conn, envelope)
                 return self._process_bucket(asmsg_ops)
             except ASMSGProtocolException as e:
-                if e.result_code not in (14,):
+                if e.result_code not in retry_excs:
                     raise
                 retry_count -= 1
                 if not retry_count:
@@ -148,7 +148,7 @@ class AerospikeClient:
             bin_cmds
         )
 
-        return self._submit_message(envelope, retry_count)
+        return self._submit_message(envelope, retry_count, retry_excs=(2, 14,))
 
     @asyncio.coroutine
     def _append_op(self, namespace, set='', key='', bin='', append_blob='', op=aerospike_py.message.AS_MSG_OP_APPEND, record_ttl=0, retry_count=3):
@@ -164,7 +164,7 @@ class AerospikeClient:
             bin_cmds
         )
 
-        return self._submit_message(envelope, retry_count)
+        return self._submit_message(envelope, retry_count, retry_excs=(2, 14,))
 
     @asyncio.coroutine
     def append(self, namespace, set='', key='', bin='', append_blob='', record_ttl=0):
