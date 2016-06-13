@@ -34,7 +34,7 @@ error_table = {
     AS_ERR_OK: "OK",
 
     AS_ERR_SERVER_ERROR: "Unspecified server error",
-    AS_ERR_KEY_NOT_FOUND_ERROR: "Specified key could not be located",
+    AS_ERR_KEY_NOT_FOUND_ERROR: "Specified key could not be located (or has maybe expired)",
     AS_ERR_GENERATION_ERROR: "Invalid generation specified",
     AS_ERR_PARAMETER_ERROR: "Invalid parameter specified",
     AS_ERR_KEY_EXISTS_ERROR: "Specified key already exists",
