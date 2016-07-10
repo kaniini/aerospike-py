@@ -27,8 +27,28 @@ class AsyncConnection(Connection):
             LOGGER.exception("Can't connect to Aerospike")
             self.reader = self.writer = None
 
-    def read(self, length: int):
-        data = yield from self.reader.readexactly(length)
+    def read(self, length: int, needs_resync: bool):
+        # if we need to resync, then we use the first 2 bytes to sync
+        found_header_sentinel = not needs_resync
+        if needs_resync:
+            length -= 2
+
+        try:
+            # theory: aerospike messages begin with either {0x02, 0x01} or {0x02, 0x03}.
+            # so we use these as sync bytes to ensure we return the proper header bytes.
+            while not found_header_sentinel:
+                trailing = yield from self.reader.readuntil('\002')[-1]
+                next_byte = yield from self.reader.readexactly(1)
+
+                if next_byte in {'\001', '\003'}:
+                    found_header_sentinel = True
+                    trailing += next_byte
+
+            remainder = yield from self.reader.readexactly(length)
+            data = trailing + remainder
+        except (EnvironmentError, asyncio.IncompleteReadError):
+            data = None
+
         return data
 
     def write(self, buf):

@@ -230,14 +230,14 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
     buf = pack_outer_header(ohdr) + data
     yield from conn.write(buf)
 
-    hdr_payload = yield from conn.read(8)
+    hdr_payload = yield from conn.read(8, True)
     if not hdr_payload:
         raise ASIOException('read')
 
     header, _ = unpack_message(hdr_payload)
 
     data = hdr_payload
-    data += yield from conn.read(header.sz)
+    data += yield from conn.read(header.sz, False)
 
     header, payload = unpack_message(data)
     asmsg_header, asmsg_fields, asmsg_ops, _ = unpack_asmsg(payload)
@@ -258,14 +258,14 @@ def submit_multi_message(conn: Connection, data: bytes) -> list:
     messages = []
 
     while not_last:
-        hdr_payload = yield from conn.read(8)
+        hdr_payload = yield from conn.read(8, True)
         if not hdr_payload:
             raise ASIOException('read')
 
         header, _ = unpack_message(hdr_payload)
 
         data = hdr_payload
-        data += yield from conn.read(header.sz)
+        data += yield from conn.read(header.sz, False)
 
         if len(data) != 8 + header.sz:
             raise ASIOException('read')
