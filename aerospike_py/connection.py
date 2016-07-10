@@ -9,7 +9,7 @@ class Connection:
     """Connection classes simply provide an interface specification for abstracting I/O.
     They can be used with Twisted, Eventlet, AsyncIO, etc. without problem.
     """
-    def read(self, length):
+    def read(self, length, needs_resync):
         pass
 
     def write(self, buf):
@@ -27,6 +27,7 @@ class AsyncConnection(Connection):
             LOGGER.exception("Can't connect to Aerospike")
             self.reader = self.writer = None
 
+    @asyncio.coroutine
     def read(self, length: int, needs_resync: bool):
         # if we need to resync, then we use the first 2 bytes to sync
         found_header_sentinel = not needs_resync
@@ -51,6 +52,7 @@ class AsyncConnection(Connection):
 
         return data
 
+    @asyncio.coroutine
     def write(self, buf):
         self.writer.write(buf)
         yield from self.writer.drain()
