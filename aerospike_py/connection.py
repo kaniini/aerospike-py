@@ -38,7 +38,7 @@ class AsyncConnection(Connection):
             # theory: aerospike messages begin with either {0x02, 0x01} or {0x02, 0x03}.
             # so we use these as sync bytes to ensure we return the proper header bytes.
             while not found_header_sentinel:
-                trailing = yield from self.reader.readuntil('\002')[-1]
+                trailing = (yield from self.reader.readuntil('\002'))[-1]
                 next_byte = yield from self.reader.readexactly(1)
 
                 if next_byte in {'\001', '\003'}:
