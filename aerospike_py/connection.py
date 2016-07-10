@@ -29,6 +29,8 @@ class AsyncConnection(Connection):
 
     @asyncio.coroutine
     def read(self, length: int, needs_resync: bool):
+        orig_length = length
+
         # if we need to resync, then we use the first 2 bytes to sync
         found_header_sentinel = not needs_resync
         if needs_resync:
@@ -47,8 +49,14 @@ class AsyncConnection(Connection):
                     found_header_sentinel = True
                     trailing += next_byte
 
+            if needs_resync:
+                assert len(trailing) == 2
+
             remainder = yield from self.reader.readexactly(length)
+            assert len(remainer) == length
+
             data = trailing + remainder
+            assert len(data) == orig_length
         except (EnvironmentError, asyncio.IncompleteReadError):
             data = None
 
