@@ -40,7 +40,7 @@ def pack_message(envelope: bytes, msg_type: int) -> bytes:
 
 def unpack_message(envelope: bytes, whole_message: bool = False) -> (AerospikeOuterHeader, bytes):
     if len(envelope) < 8:
-        raise InvalidMessageException('message length is too short')
+        raise InvalidMessageException('message length %d is too short' % len(envelope))
 
     header = unpack_outer_header(envelope[0:8])
     if header.version != 2:
