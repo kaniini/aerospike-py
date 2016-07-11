@@ -42,8 +42,17 @@ class AsyncConnection(Connection):
             # theory: aerospike messages begin with either {0x02, 0x01} or {0x02, 0x03}.
             # so we use these as sync bytes to ensure we return the proper header bytes.
             while not found_header_sentinel:
+                # we check for 0 byte reads because EOF may be received from Aerospike while
+                # searching for the header sentinel.  unfortunately, asyncio does not properly
+                # handle EOF in all cases.  see https://github.com/python/asyncio/issues/379 for
+                # more details.
                 trailing = (yield from self.reader.readuntil(b'\002'))[-1:1]
+                if len(trailing) < 1:
+                    raise asyncio.IncompleteReadError(partial=trailing, expected=1)
+
                 next_byte = yield from self.reader.readexactly(1)
+                if len(next_byte) < 1:
+                    raise asyncio.IncompleteReadError(partial=next_byte, expected=1)
 
                 if next_byte in {b'\001', b'\003'}:
                     found_header_sentinel = True
