@@ -53,7 +53,7 @@ class AsyncConnection(Connection):
                 assert len(trailing) == 2
 
             remainder = yield from self.reader.readexactly(length)
-            assert len(remainer) == length
+            assert len(remainder) == length
 
             data = trailing + remainder
             assert len(data) == orig_length
