@@ -250,7 +250,7 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
 
         return header, asmsg_header, asmsg_fields, asmsg_ops
     finally:
-        yield from conn.close_connection()
+        conn.close_connection()
 
 
 @asyncio.coroutine
@@ -292,4 +292,4 @@ def submit_multi_message(conn: Connection, data: bytes) -> list:
 
         return messages
     finally:
-        yield from conn.close_connection()
+        conn.close_connection()
