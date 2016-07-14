@@ -228,36 +228,11 @@ def unpack_asmsg(data: bytes) -> (AerospikeASMSGHeader, list, list):
 def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, AerospikeASMSGHeader, list, list):
     ohdr = AerospikeOuterHeader(2, 3, len(data))
     buf = pack_outer_header(ohdr) + data
+
+    yield from conn.open_connection()
     yield from conn.write(buf)
 
-    hdr_payload = yield from conn.read(8, True)
-    if not hdr_payload:
-        raise ASIOException('read')
-
-    header, _ = unpack_message(hdr_payload)
-
-    data = hdr_payload
-    data += yield from conn.read(header.sz, False)
-
-    header, payload = unpack_message(data)
-    asmsg_header, asmsg_fields, asmsg_ops, _ = unpack_asmsg(payload)
-
-    if asmsg_header.result_code != 0:
-        raise ASMSGProtocolException(asmsg_header.result_code)
-
-    return header, asmsg_header, asmsg_fields, asmsg_ops
-
-
-@asyncio.coroutine
-def submit_multi_message(conn: Connection, data: bytes) -> list:
-    ohdr = AerospikeOuterHeader(2, 3, len(data))
-    buf = pack_outer_header(ohdr) + data
-    yield from conn.write(buf)
-
-    not_last = True
-    messages = []
-
-    while not_last:
+    try:
         hdr_payload = yield from conn.read(8, True)
         if not hdr_payload:
             raise ASIOException('read')
@@ -267,19 +242,54 @@ def submit_multi_message(conn: Connection, data: bytes) -> list:
         data = hdr_payload
         data += yield from conn.read(header.sz, False)
 
-        if len(data) != 8 + header.sz:
-            raise ASIOException('read')
-
         header, payload = unpack_message(data)
-        while payload:
-            asmsg_header, asmsg_fields, asmsg_ops, payload = unpack_asmsg(payload)
-            messages += [(header, asmsg_header, asmsg_fields, asmsg_ops)]
+        asmsg_header, asmsg_fields, asmsg_ops, _ = unpack_asmsg(payload)
 
-        if asmsg_header.result_code not in (0, 2):
+        if asmsg_header.result_code != 0:
             raise ASMSGProtocolException(asmsg_header.result_code)
 
-        if (asmsg_header.info3 & AS_INFO3_LAST) == AS_INFO3_LAST:
-            not_last = False
-            continue
+        return header, asmsg_header, asmsg_fields, asmsg_ops
+    finally:
+        yield from conn.close_connection()
 
-    return messages
+
+@asyncio.coroutine
+def submit_multi_message(conn: Connection, data: bytes) -> list:
+    ohdr = AerospikeOuterHeader(2, 3, len(data))
+    buf = pack_outer_header(ohdr) + data
+
+    yield from conn.open_connection()
+    yield from conn.write(buf)
+
+    try:
+        not_last = True
+        messages = []
+
+        while not_last:
+            hdr_payload = yield from conn.read(8, True)
+            if not hdr_payload:
+                raise ASIOException('read')
+
+            header, _ = unpack_message(hdr_payload)
+
+            data = hdr_payload
+            data += yield from conn.read(header.sz, False)
+
+            if len(data) != 8 + header.sz:
+                raise ASIOException('read')
+
+            header, payload = unpack_message(data)
+            while payload:
+                asmsg_header, asmsg_fields, asmsg_ops, payload = unpack_asmsg(payload)
+                messages += [(header, asmsg_header, asmsg_fields, asmsg_ops)]
+
+            if asmsg_header.result_code not in (0, 2):
+                raise ASMSGProtocolException(asmsg_header.result_code)
+
+            if (asmsg_header.info3 & AS_INFO3_LAST) == AS_INFO3_LAST:
+                not_last = False
+                continue
+
+        return messages
+    finally:
+        yield from conn.close_connection()

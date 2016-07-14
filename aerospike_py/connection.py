@@ -19,13 +19,22 @@ class Connection:
 class AsyncConnection(Connection):
     """A Connection subclass which uses AsyncIO."""
     def __init__(self, host: str, port: int):
-        conn = asyncio.open_connection(host, port)
-        loop = asyncio.get_event_loop()
+        self.host = host
+        self.port = port
+
+    @asyncio.coroutine
+    def open_connection(self):
         try:
-            (self.reader, self.writer) = loop.run_until_complete(conn)
+            (self.reader, self.writer) = yield from asyncio.open_connection(self.host, self.port)
         except OSError:
             LOGGER.exception("Can't connect to Aerospike")
             self.reader = self.writer = None
+
+    def close_connection(self):
+        if self.writer:
+            self.writer.close()
+
+        self.reader = self.writer = None
 
     @asyncio.coroutine
     def read(self, length: int, needs_resync: bool):
