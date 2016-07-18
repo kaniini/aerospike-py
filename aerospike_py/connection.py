@@ -76,5 +76,8 @@ class AsyncConnection(Connection):
 
     @asyncio.coroutine
     def write(self, buf):
-        self.writer.write(buf)
-        yield from self.writer.drain()
+        try:
+            self.writer.write(buf)
+            yield from self.writer.drain()
+        except EnvironmentError as e:
+            raise ASConnectionError('while writing to aerospike, encountered %r' % e)
