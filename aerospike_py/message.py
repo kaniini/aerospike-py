@@ -2,7 +2,7 @@ import asyncio
 from collections import namedtuple
 import struct
 
-from aerospike_py.connection import Connection
+from aerospike_py.connection import Connection, ASConnectionError
 from aerospike_py.result_code import ASMSGProtocolException
 
 
@@ -230,9 +230,13 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
     buf = pack_outer_header(ohdr) + data
 
     yield from conn.open_connection()
-    yield from conn.write(buf)
 
     try:
+        try:
+            yield from conn.write(buf)
+        except ASConnectionError as e:
+            raise ASIOException('write: %r' % e)
+
         hdr_payload = yield from conn.read(8, True)
         if not hdr_payload:
             raise ASIOException('read')
@@ -259,9 +263,13 @@ def submit_multi_message(conn: Connection, data: bytes) -> list:
     buf = pack_outer_header(ohdr) + data
 
     yield from conn.open_connection()
-    yield from conn.write(buf)
 
     try:
+        try:
+            yield from conn.write(buf)
+        except ASConnectionError as e:
+            raise ASIOException('write: %r' % e)
+
         not_last = True
         messages = []
 

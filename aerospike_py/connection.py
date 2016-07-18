@@ -16,6 +16,10 @@ class Connection:
         pass
 
 
+class ASConnectionError(Exception):
+    pass
+
+
 class AsyncConnection(Connection):
     """A Connection subclass which uses AsyncIO."""
     def __init__(self, host: str, port: int):
