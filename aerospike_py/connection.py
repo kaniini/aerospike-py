@@ -41,6 +41,11 @@ class AsyncConnection(Connection):
         self.reader = self.writer = None
 
     @asyncio.coroutine
+    def cycle_connection(self):
+        self.close_connection()
+        yield from asyncio.shield(self.open_connection())
+
+    @asyncio.coroutine
     def read(self, length: int):
         try:
             data = yield from self.reader.readexactly(length)
