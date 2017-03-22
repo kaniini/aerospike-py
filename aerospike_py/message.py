@@ -274,14 +274,14 @@ def submit_multi_message(conn: Connection, data: bytes) -> list:
         messages = []
 
         while not_last:
-            hdr_payload = yield from conn.read(8, True)
+            hdr_payload = yield from conn.read(8)
             if not hdr_payload:
                 raise ASIOException('read')
 
             header, _ = unpack_message(hdr_payload)
 
             data = hdr_payload
-            data += yield from conn.read(header.sz, False)
+            data += yield from conn.read(header.sz)
 
             if len(data) != 8 + header.sz:
                 raise ASIOException('read')
