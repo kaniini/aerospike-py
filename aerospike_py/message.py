@@ -237,7 +237,7 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
         except ASConnectionError as e:
             raise ASIOException('write: %r' % e)
 
-        hdr_payload = yield from conn.read(8, True)
+        hdr_payload = yield from conn.read(8)
         if not hdr_payload:
             raise ASIOException('read')
 
