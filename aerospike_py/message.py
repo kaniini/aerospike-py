@@ -244,7 +244,7 @@ def submit_message(conn: Connection, data: bytes) -> (AerospikeOuterHeader, Aero
         header, _ = unpack_message(hdr_payload)
 
         data = hdr_payload
-        data += yield from conn.read(header.sz, False)
+        data += yield from conn.read(header.sz)
 
         header, payload = unpack_message(data)
         asmsg_header, asmsg_fields, asmsg_ops, _ = unpack_asmsg(payload)
