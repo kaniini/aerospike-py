@@ -4,7 +4,7 @@ import hashlib
 from aerospike_py.connection import AsyncConnection
 from aerospike_py.info import request_info_keys
 from aerospike_py.result_code import ASMSGProtocolException
-from aerospike_py.message import ASIOException
+from aerospike_py.message import ASIOException, pack_message, unpack_message, unpack_asmsg
 import aerospike_py.message
 
 
@@ -15,12 +15,72 @@ def hash_key(set='', key=''):
     return h.digest()
 
 
-class AerospikeClient:
-    def __init__(self, conn):
-        self.conn = conn
+class AerospikeMessage:
+    def __init__(self, header, data):
+        self.header = header
+        self.data = data
 
-    def info(self, keys):
-        return request_info_keys(self.conn, keys)[1]
+    def __repr__(self):
+        return 'AerospikeMessage(header=%r, data=%r)' % (self.header, self.data)
+
+    @property
+    def msg_type(self):
+        return self.header.msg_type
+
+
+class AerospikeClient(asyncio.Protocol):
+    def __init__(self):
+        self.buffer = bytearray()
+        self.messages = asyncio.Queue()
+
+    def connection_made(self, transport: asyncio.BaseTransport):
+        self.transport = transport
+
+    def data_received(self, data):
+        self.buffer.extend(data)
+
+        if len(self.buffer) < 8:
+            return
+
+        header, _ = unpack_message(self.buffer[:8])
+        mlen = 8 + header.sz
+        if len(self.buffer) < mlen:
+            return
+
+        workbuf = self.buffer[:mlen]
+        self.buffer = self.buffer[mlen:]
+
+        header, payload = unpack_message(workbuf)
+        if header.msg_type == 1:
+            message = AerospikeMessage(header, payload.decode('utf-8'))
+            self.messages.put_nowait(message)
+            return
+
+        messages = []
+        while payload:
+            asmsg_header, asmsg_fields, asmsg_ops, payload = unpack_asmsg(payload)
+            messages += [(asmsg_header, asmsg_fields, asmsg_ops)]
+
+        message = AerospikeMessage(header, messages)
+        self.messages.put_nowait(message)
+
+    async def info(self, keys):
+        envelope = pack_message('\n'.join(keys).encode('utf-8'), 1)
+        self.transport.write(envelope)
+
+        message = await self.messages.get()
+
+        datakeys = {}
+        for line in message.data.split('\n'):
+            k, _, v = line.partition('\t')
+            if not k:
+                continue
+            if ';' in v:
+                datakeys[k] = v.split(';')
+            else:
+                datakeys[k] = v
+
+        return datakeys
 
     def _process_bucket(self, asmsg_ops):
         buckets = {}
